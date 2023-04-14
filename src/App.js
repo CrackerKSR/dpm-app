@@ -7,178 +7,367 @@ import { ThirdwebStorage,IpfsUploader } from '@thirdweb-dev/storage';
 // import { useStorage } from "@thirdweb/react";
 import Web3 from 'web3'
 import { CommonSymbolSchema } from '@thirdweb-dev/sdk';
-const myContractABI = [
-  {
-    "constant": false,
-    "inputs": [
-      {
-        "name": "website",
-        "type": "string"
-      },
-      {
-        "name": "usernameCID",
-        "type": "string"
-      },
-      {
-        "name": "passwordCID",
-        "type": "string"
-      }
-    ],
-    "name": "storeCredentials",
-    "outputs": [],
-    "payable": false,
-    "stateMutability": "nonpayable",
-    "type": "function",
-    "signature": "0x69d8f5fb"
-  },
-  {
-    "constant": true,
-    "inputs": [
-      {
-        "name": "website",
-        "type": "string"
-      }
-    ],
-    "name": "getCredentials",
-    "outputs": [
-      {
-        "name": "",
-        "type": "string"
-      },
-      {
-        "name": "",
-        "type": "string"
-      }
-    ],
-    "payable": false,
-    "stateMutability": "view",
-    "type": "function",
-    "signature": "0xf6b1a22b"
-  }
-]
-// const web3 = new Web3('http://127.0.0.1:7545');
-// const web3 = new Web3(Web3.givenProvider || "ws://localhost:7545");
-const web3 = new Web3(window.ethereum);
+import { DatePicker, Table, Switch} from 'antd';
 
+import PasswordManagerABI  from './abi.json'
 
-const abi = 'build/contracts/PasswordManager.json'
-const address = '0x415F33f50120a16A7a68Ec1004D5114E72DA81B1'
+import { getAccounts, getContract, fetchAllCreds, saveCreds, checkMeta, deleteRecord } from './utils';
 
-// console.log('currentProvider ',web3.currentProvider)
-// const passwordManager = new web3.eth.Contract(contractAbi, contractAddress);
+import { 
+  EyeInvisibleOutlined, 
+  EyeOutlined, 
+  EditOutlined, 
+  CopyOutlined,
+  UserOutlined,
+  LockOutlined,
+  DownloadOutlined,
+  DeleteOutlined ,
+  LinkOutlined
+} from '@ant-design/icons';
 
-web3.eth.getAccounts()
-.then(from=>{
-  (async()=>{
-    const contract = new web3.eth.Contract(myContractABI, address);
-    console.log('before ',from[0]);
-    let site = String('example.com');
-    let username = String('QmQPzSauKgt4M5XsCYF8JUd54XprFZZ9HyALk4WW6ywbi8');
-    let password = String('QmQPzSauKgt4M5XsCYF8JUd54XprFZZ9HyALk4WW6ywbi8');
-    // const result = await contract.methods.storeCredentials(site, username, password).send({ from: from[0] });
-    const result = await contract.methods.getCredentials(site ).call()
-    // console.log('after')
-    console.log('result ',result); // prints the transaction receipt
-  })()
-})
+import { 
+  Button, 
+  Space, 
+  Input, 
+  Alert, 
+  message,
+  Layout,
+  Typography,
+  Empty,
+  Divider,
+  Form,
+  Row, 
+  Col,
+  
+} from 'antd';
+
+import { ReactComponent as MetamaskIcon } from './metamask.svg';
+const { Header, Content, Footer } = Layout;
+const { Title, Text  } = Typography;
+
+const { Search } = Input
 
 
 
+const APP_NAME = "DecentraLock"
+const TAGLINE = "The secure blockchain password manager"
+const Login_Message_Text = `Logged in to ${APP_NAME} !`
+
+function ShowAlert(){
+  return (<Alert
+    message="Metamask is not connected!"
+    description={`Please connect metamask to use ${APP_NAME}`}
+    type="warning"
+    showIcon
+  />)
+}
+
+const warningMsg = {
+  type: 'error',
+  content: 'Processing metamask',
+}
+
+const loginMsg = {
+  type: 'success',
+  content: Login_Message_Text,
+}
+
+
+const combinePairs=(data)=>{
+  const sites = data[0];
+  const usernames = data[1];
+  const passwords = data[2];
+
+  return sites.map((site, index) => ({
+    key:index,
+    site,
+    username: usernames[index],
+    password: passwords[index],
+  }));
+}
 
 function App() {
-  const [file, setFile] = useState(null);
-  const [data, setData] = useState('');
-  const [web3, setWeb3] = useState(null);
-  const [contractInstance, setContractInstance] = useState(null);
+  const [credential , setCredential ] = useState(null);
+  const [isMetaMaskConnected, setIsMetaMaskConnected] = useState(false);
+  const [accounts, setAccounts] = useState([]);
+  const [showIndex, setShowIndex] = useState(-1);
+  const [etherium, setEtherium] = useState(-1);
+  const [messageApi, contextHolder] = message.useMessage();
 
+  useEffect(() => {
 
+    // check etherium support
+    checkEtheriumSupport();
 
-  React.useEffect(()=>{
+    // Request MetaMask Connection
+    requestMetamask();
 
-    if(file!==null){
+    // get all stored records from blochain
+    fetchRecords();
 
-    }
-    // console.log('window.ethereum ',web3.eth.Contract(abi, address))
-  },[file])
+  }, []);
 
-  const handleFileChange=(e)=>{
-    console.log('file change, set file ')
-    const file = e.target.files[0];
-    setFile(file)
+  const fetchRecords=()=>{
+    fetchAllCreds().then(data=>{
+      let combo = combinePairs(data)
+      setCredential(combo)
+    })
   }
- 
 
-
-  const save = async() =>{
-
-    if(file!==null){
-      // First, instantiate the thirdweb IPFS storage
-      const storage = new ThirdwebStorage();
-
-      // Here we get the IPFS URI of where our metadata has been uploaded
-      const uri = await storage.upload(file);
-      // This will log a URL like ipfs://QmWgbcjKWCXhaLzMz4gNBxQpAHktQK6MkLvBkKXbsoWEEy/0
-      console.info(uri);
-
-      // Here we a URL with a gateway that we can look at in the browser
-      const url = await storage.resolveScheme(uri);
-      // This will log a URL like https://ipfs.thirdwebcdn.com/ipfs/QmWgbcjKWCXhaLzMz4gNBxQpAHktQK6MkLvBkKXbsoWEEy/0
-      console.info(url);
-
-      // You can also download the data from the uri
-      const data = await storage.downloadJSON(uri);
-      console.log(data)
-      return uri
+  const requestMetamask=()=>{
+    if(!window.ethereum){
+      console.log("Not etherium ")
+      message.warning("Etherium is missing!")
     }else{
-      console.log('file null.. uploading cancelled..')
-      return null
+      window.ethereum.request({ method: 'eth_requestAccounts' })
+      .then(accounts => {
+        setAccounts(accounts);
+        setIsMetaMaskConnected(true);
+        message.open(loginMsg)
+      })
+      .catch(error => {
+        console.error('eth req ',error);
+        // message.open(warningMsg)
+      });
+    }
+
+  }
+
+  const checkEtheriumSupport=()=>{
+
+    if (!window.ethereum) {
+      setEtherium(false)
+    }else{
+      setEtherium(true)
     }
   }
 
-  const do1 = async() => {
-    const website = "www.example.com";
-    const username = "abc";
-    const password = "123";
-
-    // await passwordManagerInstance.storeCredentials(website, username, password);
-
-  }
-
-  const get1 = async()=>{
-    console.log('retriving... ');
-    const website = "www.example.com";
-
-    // const credentials = await passwordManagerInstance.getCredentials(website);
-
-    // console.log(credentials.username);
-    // console.log(credentials.password);
+ 
+  if (!isMetaMaskConnected) {
+    return (
+      
+      <Space className="App-header">
+        <Space sizze="large" direction='vertical' align="center">
+          <Text>A mini project for Blockchain Lab</Text>
+          <Title level={1}>{APP_NAME}</Title>
+          <Text>{TAGLINE}</Text>
+        </Space>
+        <h6 className="warn" onClick={()=>{checkMeta();}}>Open Metamask</h6>
+          <ShowAlert/>
+      </Space>
+    )
 
   }
 
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-      <div>
 
-      </div>
-      <input type="file" onChange={handleFileChange} />
-      <h6>Data: {data}</h6>
-      <button value={'save'} onClick={save}> Save </button>
+  const onCopyUsername = (index) => {
+    let record = credential.filter((item)=>item.key===index)[0]
+    navigator.clipboard.writeText(record['username']);
+  };
+  
+  const onCopyPassword = (index,field) => {
+    let record = credential.filter((item)=>item.key===index)[0]
+    navigator.clipboard.writeText(record['password']);
+  };
 
-    </div>
+  const onDelete =(index)=>{
+    // TODO
+    // let obj = credential.filter((item)=>{item.key==index})
+    let record = credential.filter((item)=>item.key===index)[0]
+    // let toDel = credential.filter(i=>i.key===index)
+    console.log('record to delt ',record.site);
+
+    deleteRecord("site1")
+    .then(res=>{
+      console.log(' delete res ',res)
+      fetchRecords();
+    })
+    .catch(er=>{
+      console.log(' delete err ',er.message)
+    })
+    
+  }
+  
+  const editRecord =(index)=>{
+    // TODO save 
+    console.log(" editing...",index)
+  }
+
+  const getIconsForUsername=(currentIndex)=>{
+    return (
+      <Space>
+        <CopyOutlined onClick={(e)=>onCopyUsername(currentIndex)}/>
+      </Space>
+    )
+  } 
+
+  const getIconsForPassword=(currentIndex)=>{
+
+    const ToggleButton = currentIndex === showIndex ? 
+    (<EyeOutlined onClick={() => { setShowIndex(currentIndex === showIndex ? -1 : currentIndex) }} />)
+    :
+    (<EyeInvisibleOutlined onClick={() => { setShowIndex(currentIndex === showIndex ? -1 : currentIndex) }} />) 
+    
+    return (
+      <Space>
+        {ToggleButton}
+        <CopyOutlined onClick={(e)=>onCopyPassword(currentIndex)} />
+      </Space>
+    )
+
+  } 
+
+  const cols = [
+    {
+      title: 'site'.toUpperCase(),
+      dataIndex: 'site',
+      key: 'site',
+      
+    },
+    {
+      title: 'username'.toUpperCase(),
+      dataIndex: 'username',
+      key: 'username',
+      render:(text, record, currentIndex)=>{
+        return (
+          <Space>
+            <Input addonAfter={getIconsForUsername(currentIndex)} value={text} readOnly  />
+          </Space>
+        )
+      }
+    },
+
+    {
+      title: 'password'.toUpperCase(),
+      dataIndex: 'password',
+      key: 'password',
+      render:(text,record,currentIndex )=>{
+        return(
+          <Space size="middle" direction="horizontal">
+            <Input addonAfter={getIconsForPassword(currentIndex)} value={currentIndex === showIndex ? text:"•".repeat(text.length)} readOnly  />
+            {/* <Text align="right" editable copyable ellipsis style={{ border: "0px solid blue", padding: "5px", width:"200px" }} >{text}</Text> */}
+          </Space>
+        )
+      }
+    },
+    {
+      title: 'Misc'.toUpperCase(),
+      dataIndex: 'Misc',
+      key: 'Misc',
+      render:(text,record,currentIndex )=>{
+        return(
+          <Space size="middle" direction="horizontal">
+            <EditOutlined style={{ color: 'green' }} onClick={()=>{
+              // console.log("currentIndex ",currentIndex);
+              
+            }} />
+            <DeleteOutlined style={{ color: 'red' }} onClick={()=>{
+              onDelete(currentIndex)
+            }}/>
+            {/* <Input copyable addonAfter={getIconsForPassword(currentIndex)} value={currentIndex === showIndex ? text:"•".repeat(text?.length)} readOnly  /> */}
+            {/* <Text align="right" editable copyable ellipsis style={{ border: "0px solid blue", padding: "5px", width:"200px" }} >{text}</Text> */}
+            
+          </Space>
+        )
+      }
+    },
+
+  ]
+  
+  const onFinish = (values) => {
+    saveCreds(values.website, values.username, values.password)
+    .then(res=>{
+      console.log("res ",res);
+      message.success("Credentials saved successfully");
+      fetchRecords()
+    }).catch(e=>message.error('Error saving... ',e.message))
+  };
+
+  const DemoForm = () => {
+  
+    return (
+      <Form layout="vertical" onFinish={onFinish}>
+      <Row gutter={16}>
+      <Col span={8}>
+          <Form.Item
+            name="website"
+            rules={[
+              {
+                required: true,
+                message: 'Please input the website URL',
+              },
+            ]}
+          >
+            <Input placeholder="Website URL" prefix={<LinkOutlined />} />
+          </Form.Item>
+        </Col>
+
+        <Col span={6}>
+          <Form.Item
+            name="username"
+            rules={[
+              {
+                required: true,
+                message: 'Please input your username',
+              },
+            ]}
+          >
+            <Input placeholder="Username" prefix={<UserOutlined />} />
+          </Form.Item>
+        </Col>
+        <Col span={6}>
+          <Form.Item
+            name="password"
+            rules={[
+              {
+                required: true,
+                message: 'Please input your password',
+              },
+            ]}
+          >
+            <Input.Password placeholder="Password" prefix={<LockOutlined />}/>
+          </Form.Item>
+        </Col>
+
+        <Col span={4}>
+          <Button type="primary" htmlType="submit">
+            Save
+          </Button>
+        </Col>
+      </Row>
+    </Form>
+    );
+  };
+  
+  return(
+    <Layout align="center">
+      <Content>
+        <Space size="large" direction="vertical">
+          <header className="App-header2">
+ 
+            <Title level={1}>{APP_NAME}</Title>
+            <Text>{TAGLINE}</Text>
+
+          </header>
+          <hr/>
+          <Divider />
+          <Space align="left">
+            <Text style={{textAlign: 'left'}}>{"Save new credential"}</Text>
+          </Space>
+          <DemoForm/>
+          <Divider />
+          <hr/>
+          <Space align="left">
+            <Text>{"Saved Credentials"}</Text>
+          </Space>
+          <Space>
+            <Table dataSource={credential} columns={cols} />
+          </Space>
+            <Button type="primary" onClick={()=>{fetchRecords();}} >Refresh</Button>
+
+        </Space>
+      </Content>
+    </Layout>
   );
 }
 
