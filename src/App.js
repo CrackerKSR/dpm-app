@@ -177,7 +177,7 @@ function App() {
     // let toDel = credential.filter(i=>i.key===index)
     console.log('record to delt ',record.site);
 
-    deleteRecord("site1")
+    deleteRecord(record.site)
     .then(res=>{
       console.log(' delete res ',res)
       fetchRecords();
