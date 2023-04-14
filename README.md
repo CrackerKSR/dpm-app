@@ -26,6 +26,6 @@ Make sure Ganache is running and Metamask is connected.
 
 `truffle deploy`
 
-5. Run
+5. Run.
 
 `npm start`
