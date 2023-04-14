@@ -1,12 +1,7 @@
 import Web3 from 'web3'
 import PasswordManagerABI  from './abi.json'
 
-
-// const Contractaddress = '0x5189A21d0AE828E9A8c0626a220d0110aF64a06E'
-// const Contractaddress = '0x2Ea14c2e42f264BC0FC6A2fE34C896aB67A70329'
-// const Contractaddress = '0x16c7cC2148D0619E43C53D02AC27Cd1D971ceCEC'
 const Contractaddress = '0xdf9989BD82875f171208D54e82b83869503d43B8'
-
 
 
 const web3 = new Web3(window.ethereum);

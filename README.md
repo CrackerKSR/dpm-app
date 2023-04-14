@@ -12,20 +12,24 @@ Make sure Ganache is running and Metamask is connected.
 
 1. Run the command inside project directory where package.json exist
 
-`npm install`
+    `npm install`
 
 2. Install truffle
 
-`npm -g install truffle`
+    `npm -g install truffle`
 
 3. Compile COntract
 
-`truffle compile`
+    `truffle compile`
 
-4. Deploy contract
+4. Deploy contract 
 
-`truffle deploy`
+    `truffle deploy`
 
-5. Run.
+5. Then copy contract address of PasswordManager and replace it in `src\utils.js`
 
-`npm start`
+6. Copy content from `build\contracts\PasswordManager.json` to `src\abi.json`
+
+7. Run
+
+    `npm start`
