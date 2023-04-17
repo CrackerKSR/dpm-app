@@ -13,6 +13,8 @@ import PasswordManagerABI  from './abi.json'
 
 import { getAccounts, getContract, fetchAllCreds, saveCreds, checkMeta, deleteRecord } from './utils';
 
+import EditCredentialsModal from './EditModel';
+
 import { 
   EyeInvisibleOutlined, 
   EyeOutlined, 
@@ -93,6 +95,9 @@ function App() {
   const [showIndex, setShowIndex] = useState(-1);
   const [etherium, setEtherium] = useState(-1);
   const [messageApi, contextHolder] = message.useMessage();
+
+  const [ModelVisible, setModelVisible] = useState(false);
+  const [CurrentRecord, setCurrentRecord] = useState({website:'', username:'', password:''});
 
   useEffect(() => {
 
@@ -258,8 +263,9 @@ function App() {
         return(
           <Space size="middle" direction="horizontal">
             <EditOutlined style={{ color: 'green' }} onClick={()=>{
-              // console.log("currentIndex ",currentIndex);
-              
+              setCurrentRecord({website:record.site, username:record.username, password:record.password})
+              setModelVisible(true)
+              console.log("Edit record ",CurrentRecord)
             }} />
             <DeleteOutlined style={{ color: 'red' }} onClick={()=>{
               onDelete(currentIndex)
@@ -339,6 +345,26 @@ function App() {
     );
   };
   
+  const handleModalCancel = ()=>{
+    console.log("handleModalCancel")
+    setModelVisible(false);
+  }
+
+  const handleModalSave = (website, username, password)=>{
+    console.log("handleModalSave ")
+    saveCreds(website, username, password)
+    .then(res=>{{
+      console.log("res ",res);
+      message.success("Credentials saved successfully");
+      fetchRecords()
+    }})
+    .catch(e=>{
+      console.log("res ",e.message);
+      message.warning("Credentials coundn't saved : ",e.message) 
+    })
+    setModelVisible(false);
+  }
+  
   return(
     <Layout align="center">
       <Content>
@@ -364,7 +390,14 @@ function App() {
             <Table dataSource={credential} columns={cols} />
           </Space>
             <Button type="primary" onClick={()=>{fetchRecords();}} >Refresh</Button>
-
+            <EditCredentialsModal 
+              visible={ModelVisible} 
+              onCancel={handleModalCancel} 
+              onSave={handleModalSave}  
+              website={CurrentRecord.website}
+              username={CurrentRecord.username}
+              password={CurrentRecord.password}
+            />
         </Space>
       </Content>
     </Layout>
